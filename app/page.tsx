@@ -36,7 +36,7 @@ export default function Home() {
     contentRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Optional: Auto-rotate slides every 5 seconds
+  // Auto-rotate slides every 5 seconds
   useEffect(() => {
     const timer = setInterval(() => {
       setActiveTab((prev) => (prev + 1) % slides.length);

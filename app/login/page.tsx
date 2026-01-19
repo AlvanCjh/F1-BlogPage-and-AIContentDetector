@@ -16,7 +16,7 @@ export default function LoginPage() {
         setMessage('');
 
         try {
-            const res = await fetch('http://localhost/api/login.php', {
+            const res = await fetch('http://localhost/api/user/login.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -28,8 +28,19 @@ export default function LoginPage() {
 
             if (data.status === 'success') {
                 localStorage.setItem('userEmail', email); // Save user email to browser memory
+                localStorage.setItem('userName', data.name);
+                localStorage.setItem('userRole', data.role); // Save user role to browser memory
                 setMessage('Login successful! Redirecting...');
-                setTimeout(() => window.location.href = '/', 1500);
+
+                window.dispatchEvent(new Event("loginUpdate"));
+        
+                setTimeout(() => {
+                    if (data.role ==='admin') {
+                        router.push('/admin/dashboard');
+                    } else {
+                        router.push('/');
+                    }
+                }, 1500);
             } else {
                 setMessage(data.message);
             } 

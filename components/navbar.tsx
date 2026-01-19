@@ -9,25 +9,48 @@ import { useRouter } from 'next/navigation';
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null); // Track admin and user 
   const router = useRouter();
 
   // Check login status on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem('userEmail');
-    setUser(storedUser);
+    const checkUser = () => {
+      const storedEmail = localStorage.getItem('userEmail');
+      const storedName = localStorage.getItem('userName');
+      const storedRole = localStorage.getItem('userRole'); // Capture user role 
+
+      setUser(storedEmail);
+      setUserName(storedName);
+      setRole(storedRole);
+    };
+
+    checkUser();
+    window.addEventListener('storage', checkUser);
+    window.addEventListener('profileUpdate', checkUser);
+    window.addEventListener('loginUpdate', checkUser);
+
+    return () => {
+      window.removeEventListener('storage', checkUser);
+      window.removeEventListener('profileUpdate', checkUser);
+      window.removeEventListener('loginUpdate', checkUser);
+    };
+
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('userEmail');
+    localStorage.clear();
     setUser(null);
+    setUserName(null);
+    setRole(null);
     setIsOpen(false);
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   const navLinks = [
     { name: 'Home', href: '/' },
+    ...(user ? [{ name: 'Feed', href: '/blog' }] : []),
     { name: 'About', href: '/about' },
-    { name: 'Contact', href: '/contact' },
   ];
 
   return (
@@ -46,7 +69,7 @@ export default function Navbar() {
         {/* Dynamic Dropdown */}
         <div className="relative" onMouseEnter={() => setIsOpen(true)} onMouseLeave={() => setIsOpen(false)}>
           <button className="px-5 py-2 bg-blue-600 rounded-full text-sm font-medium hover:bg-blue-500 transition-all">
-            {user ? "Account" : "Sign In"}
+            {user ? (role === 'admin' ? "👑 Admin" : "Account") : "Sign In"}
           </button>
 
           <AnimatePresence>
@@ -57,12 +80,20 @@ export default function Navbar() {
                 exit={{ opacity: 0, y: 10 }}
                 className="absolute right-0 mt-2 w-48 bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl"
               >
-                {/* LOGIC FLOW: Check if user exists */}
+                {/* Check if user exists */}
                 {user ? (
                   <>
-                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-white/5 uppercase tracking-widest">
-                      User: {user.split('@')[0]}
+                    <div className="px-4 py-3 text-[10px] text-gray-500 border-b border-white/5 uppercase tracking-widest bg-white/5">
+                      {role === 'admin' ? 'ADMIN' : 'USER'}: {userName}
                     </div>
+
+                    { /* Admin Login */ }
+                    {role === 'admin' && (
+                      <Link href="/admin/dashboard" className="block px-4 py-3 text-sm text-emerald-400 hover:bg-emerald-500/10 transition-colors">
+                        Admin Dashboard
+                      </Link>
+                    )}
+
                     <Link href="/profile" className="block px-4 py-3 text-sm text-gray-300 hover:bg-blue-600 hover:text-white transition-colors">
                       Profile Settings
                     </Link>
