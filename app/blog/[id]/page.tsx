@@ -10,6 +10,7 @@ interface Blog {
     title: string;
     content: string;
     author_name: string;
+    author_pfp: string | null;
     image_path: string;
     created_at: string;
 }
@@ -53,6 +54,7 @@ export default function BlogPost() {
                         ← BACK TO FEED
                     </button>
 
+                    {/* Blog Image */}
                     <div className="relative h-[400px] w-full rounded-3xl overflow-hidden mb-10 border border-white/10">
                         {blog.image_path ? (
                             <Image 
@@ -67,13 +69,50 @@ export default function BlogPost() {
                         )}
                     </div>
 
-                    <h1 className="text-4xl md:text-6xl font-black text-white mb-6 leading-tight">{blog.title}</h1>
-                    <div className="flex items-center gap-4 mb-10 pb-10 border-b border-white/10">
-                        <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold">{blog.author_name[0]}</div>
-                        <div>
-                            <p className="text-white font-bold">{blog.author_name}</p>
-                            <p className="text-gray-500 text-xs">{new Date(blog.created_at).toDateString()}</p>
+                    {/* Main Title */}
+                    <h1 className="text-4xl md:text-6xl font-black text-white mb-6 leading-tight">
+                        {blog.title}
+                    </h1>
+
+                    {/* Author and Date Section */}
+                    <div className="flex  items-center gap-4 mb-10 pb-8 border-b border-white/10">
+                    
+                    {/* Author Avatar Circle */}
+                    <div className="w-12 h-12 rounded-full overflow-hidden border border-blue-600 bg-gray-800 relative">
+                        {blog.author_pfp ? (
+                            <Image  
+                                src={`http://localhost/api/user/pfp/${blog.author_pfp}`}
+                                alt={blog.author_name}
+                                fill
+                                unoptimized={true}
+                                className="object-cover"
+                            />
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-lg font-bold text-white uppercase">
+                                {blog.author_name[0]}
+                            </div>
+
+                        )}
+                    </div>
+
+                    {/* Name and Date Container */}
+                    <div className="flex flex-1 items-center justify-between">
+                        <div className="flex flex-col">
+                             <p className="text-white font-bold text-lg leading-none mb-1">{blog.author_name}</p>
                         </div>
+                        <div className="text-right">
+                            <p className="text-gray-500 text-xs font-medium uppercase tracking-tighter">
+                                Published On
+                            </p>
+                            <p className="text-gray-300 text-sm font-semibold">
+                                {new Date(blog.created_at).toLocaleDateString('en-GB', {
+                                    day: '2-digit',
+                                    month: 'long',
+                                    year: 'numeric',
+                                })}
+                            </p>
+                        </div>
+                    </div>
                     </div>
 
                     <div className="prose prose-invert max-w-none">

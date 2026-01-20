@@ -30,6 +30,7 @@ export default function LoginPage() {
                 localStorage.setItem('userEmail', email); // Save user email to browser memory
                 localStorage.setItem('userName', data.name);
                 localStorage.setItem('userRole', data.role); // Save user role to browser memory
+                localStorage.setItem('userPfp', data.profile_pic || "");
                 setMessage('Login successful! Redirecting...');
 
                 window.dispatchEvent(new Event("loginUpdate"));

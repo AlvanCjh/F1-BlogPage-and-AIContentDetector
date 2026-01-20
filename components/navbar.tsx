@@ -1,7 +1,8 @@
-// src/components/Navbar.tsx
+// src/components/navbar.tsx
 "use client";
 
 import Link from 'next/link';
+import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -11,6 +12,7 @@ export default function Navbar() {
   const [user, setUser] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null); // Track admin and user 
+  const [profilePic, setProfilePic] = useState<string | null>(null);
   const router = useRouter();
 
   // Check login status on mount
@@ -19,10 +21,12 @@ export default function Navbar() {
       const storedEmail = localStorage.getItem('userEmail');
       const storedName = localStorage.getItem('userName');
       const storedRole = localStorage.getItem('userRole'); // Capture user role 
+      const storedPfp = localStorage.getItem('userPfp');
 
       setUser(storedEmail);
       setUserName(storedName);
       setRole(storedRole);
+      setProfilePic(storedPfp);
     };
 
     checkUser();
@@ -43,6 +47,7 @@ export default function Navbar() {
     setUser(null);
     setUserName(null);
     setRole(null);
+    setProfilePic(null);
     setIsOpen(false);
     window.location.href = '/login';
   };
@@ -68,8 +73,26 @@ export default function Navbar() {
 
         {/* Dynamic Dropdown */}
         <div className="relative" onMouseEnter={() => setIsOpen(true)} onMouseLeave={() => setIsOpen(false)}>
-          <button className="px-5 py-2 bg-blue-600 rounded-full text-sm font-medium hover:bg-blue-500 transition-all">
-            {user ? (role === 'admin' ? "👑 Admin" : "Account") : "Sign In"}
+          <button className="flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all">
+            { /* User Avatar Circle */}
+            <div className="relative w-8 h-8 rounded-full overflow-hidden border border-blue-500 bg-gray-800 flex-shrink-0">
+              {profilePic ? (
+                <Image 
+                  src={`http://localhost/api/user/pfp/${profilePic}`}
+                  alt="Profile"
+                  fill
+                  unoptimized={true}
+                  className="object-cover"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-[12px] font-bold text-white uppercase">
+                  {userName ? userName[0] : "?"}
+                </div>
+              )}
+            </div>
+            <span className="text-sm font-medium text-white hidden md:block">
+              {user ? (role === 'admin' ? "👑 Admin" : "Account") : "Sign In"}
+            </span>
           </button>
 
           <AnimatePresence>
@@ -83,8 +106,25 @@ export default function Navbar() {
                 {/* Check if user exists */}
                 {user ? (
                   <>
-                    <div className="px-4 py-3 text-[10px] text-gray-500 border-b border-white/5 uppercase tracking-widest bg-white/5">
-                      {role === 'admin' ? 'ADMIN' : 'USER'}: {userName}
+                    { /* Header with large pfp */}
+                    <div className="px-4 py-4 flex flex-col items-center border-b border-white/5 bg-white/5">
+                      <div className="relative w-14 h-14 rounded-full overflow-hidden border-2 border-blue-500 mb-3">
+                        {profilePic ? (
+                          <img
+                            src={`http://localhost/api/user/pfp/${profilePic}`}
+                            alt="pfp"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-700 flex items-center justify-center text-xl font-bold uppercase">
+                            {userName ? userName[0] : "?"}
+                          </div>
+                        )}
+                      </div>
+                    
+                      <div className="text-[10px] text-gray-500 uppercase tracking-widest text-center">
+                        {role === 'admin' ? 'ADMIN' : 'USER'}: <span className="text-blue-400">{userName}</span>
+                      </div>
                     </div>
 
                     { /* Admin Login */ }

@@ -1,111 +1,112 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import Cropper from 'react-easy-crop';
 import { motion } from 'framer-motion';
 
 export default function ProfilePage() {
-    const [email, setEmail] = useState('');
-    const [name, setName] = useState('Loading...');
-    const [newName, setNewName] = useState('');
-    const [message, setMessage] = useState('');
+  const [email, setEmail] = useState('');
+  const [pfp, setPfp] = useState<string | null>(null);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
-    useEffect(() => {
-        const storedEmail = localStorage.getItem('userEmail');
-        if (storedEmail) {
-            setEmail(storedEmail);
-            fetchProfile(storedEmail);
-        }
-    }, []);
+  useEffect(() => {
+    const storedEmail = localStorage.getItem('userEmail');
+    if (storedEmail) {
+      setEmail(storedEmail);
+      fetchProfile(storedEmail);
+    }
+  }, []);
 
-    const fetchProfile = async (userEmail: string) => {
-        try {
-            // FIX: Use backticks for template literals
-            const res = await fetch(`http://localhost/api/user/get_profile.php?email=${userEmail}`);
-            const result = await res.json();
+  const fetchProfile = async (userEmail: string) => {
+    const res = await fetch(`http://localhost/api/user/get_profile.php?email=${userEmail}`);
+    const result = await res.json();
+    if (result.status === 'success' && result.data.profile_pic) {
+      setPfp(result.data.profile_pic);
+      localStorage.setItem('userPfp', result.data.profile_pic);
+      window.dispatchEvent(new Event("profileUpdate"));
+    }
+  };
 
-            if (result.status === 'success') {
-                const fetchedName = result.data.name || 'No name set';
-                setName(fetchedName);
-                if (result.data.name) {
-                    localStorage.setItem('userName', result.data.name);
-                }
-            }
-        } catch (error) {
-            console.error("Failed to fetch profile: ", error);
-            setName('Error loading name');
-        }
-    };
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.addEventListener('load', () => setImageSrc(reader.result as string));
+      reader.readAsDataURL(file);
+    }
+  };
 
-    const handleUpdate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setMessage('Saving...');
+  const onCropComplete = useCallback((_area: any, pixels: any) => {
+    setCroppedAreaPixels(pixels);
+  }, []);
 
-        try {
-            const res = await fetch('http://localhost/api/user/update_profile.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, newName }),
-            });
-            const data = await res.json();
+  const handleUpload = async () => {
+   
+    const fileInput = document.getElementById('pfpInput') as HTMLInputElement;
+    if (!fileInput.files?.[0]) return;
 
-            if (data.status === 'success') {
-                setName(newName); // Update UI immediately
-                localStorage.setItem('userName', newName);
-                setMessage('Profile updated successfully!');
-                
-                // Notify the Navbar to update the name instantly
-                window.dispatchEvent(new Event("profileUpdate")); 
-                
-                // Optional: Clear the input after success
-                setNewName('');
-            } else {
-                setMessage(data.message);
-            }
-        } catch (error) {
-            setMessage('Error connecting to server.');
-        }
-    };
+    const formData = new FormData();
+    formData.append('email', email);
+    formData.append('image', fileInput.files[0]);
 
-    return (
-        <main className="flex min-h-screen items-center justify-center pt-20">
-            <motion.div 
-                initial={{ opacity: 0, y: 10 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                className="w-full max-w-lg p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xl"
-            >
-                <h2 className="text-3xl font-bold mb-2">User Profile</h2>
-                
-                <div className="mb-8 p-4 bg-white/5 rounded-lg border border-white/5">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Current Info</p>
-                    <p className="text-white font-semibold">Name: <span className="text-blue-400">{name}</span></p>
-                    <p className="text-white font-semibold">Email: <span className="text-blue-400">{email}</span></p>
-                </div>
+    const res = await fetch('http://localhost/api/user/upload_pfp.php', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await res.json();
+    if (data.status === 'success') {
 
-                <form onSubmit={handleUpdate} className="space-y-6">
-                    <div>
-                        <label className="block text-sm text-gray-400 mb-1">Update Display Name</label>
-                        <input 
-                            type="text" 
-                            placeholder="Enter new name"
-                            value={newName}
-                            onChange={(e) => setNewName(e.target.value)}
-                            className="w-full p-3 rounded-lg bg-black/50 border border-white/10 focus:border-blue-500 outline-none text-white transition-all" 
-                        />
-                    </div>
-                    <button className="w-full py-3 bg-blue-600 rounded-lg font-semibold hover:bg-blue-500 transition-all text-white shadow-lg shadow-blue-500/20">
-                        Update Profile
-                    </button>
-                    
-                    {message && (
-                        <motion.p 
-                            initial={{ opacity: 0 }} 
-                            animate={{ opacity: 1 }} 
-                            className="text-center text-sm text-blue-400"
-                        >
-                            {message}
-                        </motion.p>
-                    )}
-                </form>
-            </motion.div>
-        </main>
-    );
+      setPfp(data.image_path);
+      localStorage.setItem('userPfp', data.image_path);
+      window.dispatchEvent(new Event("profileUpdate"));
+      setImageSrc(null);
+      alert("Profile picture updated!");
+    }
+  };
+
+  return (
+    <main className="min-h-screen pt-32 bg-black text-white px-6">
+      <div className="max-w-xl mx-auto bg-white/5 p-8 rounded-3xl border border-white/10">
+        <h2 className="text-2xl font-bold mb-6">Profile Settings</h2>
+
+        <div className="flex flex-col items-center gap-6">
+          <div className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-blue-600">
+            {pfp ? (
+              <img src={`http://localhost/api/user/pfp/${pfp}`} className="object-cover w-full h-full" alt="Profile" />
+            ) : (
+              <div className="w-full h-full bg-gray-800 flex items-center justify-center">?</div>
+            )}
+          </div>
+
+          <input type="file" id="pfpInput" accept="image/*" onChange={onFileChange} className="hidden" />
+          <button onClick={() => document.getElementById('pfpInput')?.click()} className="text-sm text-blue-500 font-bold hover:underline">
+            Change Photo
+          </button>
+        </div>
+
+        {/* Crop Modal */}
+        {imageSrc && (
+          <div className="fixed inset-0 z-[100] bg-black p-10 flex flex-col items-center">
+            <div className="relative w-full h-64 md:h-96">
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+            <div className="mt-6 flex gap-4">
+              <button onClick={handleUpload} className="px-8 py-2 bg-blue-600 rounded-lg">Save Crop</button>
+              <button onClick={() => setImageSrc(null)} className="px-8 py-2 bg-white/10 rounded-lg">Cancel</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
 }
