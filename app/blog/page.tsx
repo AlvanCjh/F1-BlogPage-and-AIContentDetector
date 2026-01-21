@@ -39,7 +39,7 @@ export default function BlogFeed() {
     fetchBlogs();
   }, []);
 
-  // --- Sorting & Filtering Logic (Matches Admin Design) ---
+  // Sorting & Filtering Logic (Matches Admin Design) 
   const filteredAndSortedBlogs = blogs
     .filter((b) => 
         b.title.toLowerCase().includes(search.toLowerCase()) || 

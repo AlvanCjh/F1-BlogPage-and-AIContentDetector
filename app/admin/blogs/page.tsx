@@ -25,46 +25,51 @@ export default function AdminBlogManager() {
                 body: JSON.stringify({ text }),
             });
             const result = await res.json();
-
-            if (result.flagged) {
-                setFlagReports(prev => ({ ...prev, [id]: result }));
-            } else {
-                alert("✅ Content Cleared.");
-                setFlagReports(prev => {
-                    const newReports = { ...prev };
-                    delete newReports[id];
-                    return newReports;
-                });
-            }
-        } catch (e) { alert("AI connection failed."); }
-        finally { setLoadingId(null); }
+            setFlagReports(prev => ({ ...prev, [id]: result }));
+        } catch (e) { 
+            console.error("AI connection failed.", e); 
+        } finally { 
+            setLoadingId(null); 
+        }
     };
 
-    const handleDelete = async (id: number) => {
-        if (!confirm("Are you sure want to permanenetly delete this post?")) return;
+    const handleInstantStrike = async (authorId: number, authorName: string) => {
+        if (!authorId) {
+            alert("Error: Author ID missing")
+            return;
+        }
+
+        if (!confirm(`Issue an instant strike to author ${authorName}?`)) return;
 
         try {
-            const res = await fetch('http://localhost/api/admin/delete_blog.php', {
+            const res = await fetch('http://localhost/api/admin/issue_strike.php', {
                 method: 'POST',
-                body: JSON.stringify({ id }),
+                body: JSON.stringify({ id: authorId }),
             });
+
             const result = await res.json();
 
             if (result.status === 'success') {
-                setBlogs(prev => prev.filter((b: any) => b.id !== id));
-                setFlagReports(prev => {
-                    const newReports = { ...prev };
-                    delete newReports[id];
-                    return newReports;
-                });
+                alert(`✅ Instant strike issued to ${authorName}.`);
             } else {
-                alert("Error: " + result.message);
+                alert("❌ Error: " + result.message);
             }
-        } catch (e) {
-            alert("Server connection failed.")
+        } catch (error) {
+            console.error("Strike error:", error);
         }
-    } 
+    };
 
+    const handleDelete = async (id: number) => {
+        if (!confirm("Permanently delete this post?")) return;
+        const res = await fetch('http://localhost/api/admin/delete_blog.php', {
+            method: 'POST',
+            body: JSON.stringify({ id }),
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+            setBlogs(prev => prev.filter((b: any) => b.id !== id));
+        }
+    };
 
     return (
         <main className="min-h-screen bg-[#050505] text-white pt-32 pb-20 px-6">
@@ -73,65 +78,103 @@ export default function AdminBlogManager() {
             <div className="max-w-5xl mx-auto">
                 <header className="flex justify-between items-end mb-16 border-l-4 border-emerald-500 pl-6">
                     <div>
-                        <h1 className="text-5xl font-black italic tracking-tighter">BLOG <span className="text-emerald-500">MODERATION</span></h1>
-                        <p className="text-gray-500 text-sm mt-2">Zero-tolerance paddock enforcement.</p>
+                        <h1 className="text-5xl font-black italic tracking-tighter uppercase">Race <span className="text-emerald-500">Control</span></h1>
+                        <p className="text-gray-400 text-sm mt-2 font-bold uppercase tracking-widest">Blog Moderation</p>
                     </div>
                     <input
-                        placeholder="Filter Keywords by title and author..."
+                        placeholder="Search title or author..."
                         onChange={(e) => setSearch(e.target.value)}
-                        className="p-3 bg-white/5 border border-white/10 rounded-xl w-72 text-sm outline-none focus:border-emerald-500 transition-all"
+                        className="p-3 bg-white/5 border border-white/10 rounded-xl w-80 text-sm outline-none focus:border-emerald-500 transition-all"
                     />
                 </header>
 
-                <div className="grid gap-6">
-                    {blogs.filter((b: any) => b.title.toLowerCase().includes(search.toLowerCase()) || b.author_name.toLowerCase().includes(search.toLowerCase())).map((blog: any) => (
+                <div className="grid gap-8">
+                    {blogs.filter((b: any) => 
+                        b.title.toLowerCase().includes(search.toLowerCase()) || 
+                        b.author_name.toLowerCase().includes(search.toLowerCase())
+                    ).map((blog: any) => (
                         <motion.div
                             layout
                             key={blog.id}
-                            className={`p-8 bg-white/5 border rounded-[2rem] transition-all ${
-                                flagReports[blog.id] ? 'border-red-500/30 bg-red-500/5' : 'border-white/5'
+                            className={`p-8 bg-white/5 border rounded-[2.5rem] transition-all relative overflow-hidden ${
+                                flagReports[blog.id]?.flagged ? 'border-red-500/40 bg-red-500/[0.02]' : 
+                                flagReports[blog.id] ? 'border-emerald-500/30 bg-emerald-500/[0.01]' : 'border-white/5'
                             }`}
                         >
                             <div className="flex justify-between items-center mb-4">
                                 <div>
                                     <h3 className="font-bold text-2xl tracking-tight mb-1">{blog.title}</h3>
-                                    <p className="text-[10px] text-gray-500 uppercase font-black tracking-[0.2em]">Author: {blog.author_name}</p>
+                                    <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Author: {blog.author_name}</p>
                                 </div>
 
+                                {/* Fixed Button Consistency */}
                                 <div className="flex gap-4">
                                     <button
                                         onClick={() => scanWithAI(blog.id, `${blog.title} ${blog.content}`)}
                                         disabled={loadingId === blog.id}
-                                        className="px-6 py-2 bg-emerald-500 text-black rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-all"
+                                        className="w-32 h-11 bg-emerald-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-all flex items-center justify-center disabled:opacity-50"
                                     >
-                                        {loadingId === blog.id ? "Analyzing..." : "AI Scan"}
+                                        {loadingId === blog.id ? "..." : "AI Scan"}
                                     </button>
-                                    <button onClick={() => handleDelete(blog.id)} className="px-6 py-2 bg-white/5 text-red-500 border border-red-500/20 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">
+                                    <button 
+                                        onClick={() => handleDelete(blog.id)}
+                                        className="w-32 h-11 bg-white/5 text-red-500 border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all flex items-center justify-center"
+                                    >
                                         Delete
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Structured AI Report Card */}
                             <AnimatePresence>
                                 {flagReports[blog.id] && (
                                     <motion.div 
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        className="mt-8 pt-8 border-t border-white/10 flex flex-wrap gap-12"
+                                        className="mt-8 pt-8 border-t border-white/10"
                                     >
-                                        <div className="min-w-[140px]">
-                                            <p className="text-[9px] text-red-500 uppercase font-black mb-2 tracking-widest">Violation</p>
-                                            <p className="text-white font-bold text-sm leading-tight">{flagReports[blog.id].category}</p>
-                                        </div>
-                                        <div className="min-w-[140px]">
-                                            <p className="text-[9px] text-gray-500 uppercase font-black mb-2 tracking-widest">Target</p>
-                                            <p className="text-white font-bold text-sm leading-tight">{flagReports[blog.id].targets}</p>
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="text-[9px] text-gray-500 uppercase font-black mb-2 tracking-widest">Evidence</p>
-                                            <p className="text-gray-400 italic text-sm leading-relaxed">"{flagReports[blog.id].evidence}"</p>
-                                        </div>
+                                        {flagReports[blog.id].flagged ? (
+                                            /* Red Bento Grid for Flags */
+                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                <div className="bg-white/5 p-5 rounded-2xl border border-white/5">
+                                                    <p className="text-[9px] text-red-500 uppercase font-black mb-2 tracking-widest">Violation</p>
+                                                    <p className="text-white font-bold text-xs uppercase">{flagReports[blog.id].category}</p>
+                                                </div>
+                                                <div className="bg-white/5 p-5 rounded-2xl border border-white/5">
+                                                    <p className="text-[9px] text-gray-500 uppercase font-black mb-2 tracking-widest">Target</p>
+                                                    <p className="text-white font-bold text-xs leading-tight">{flagReports[blog.id].targets}</p>
+                                                </div>
+                                                <div className="md:col-span-2 bg-white/5 p-5 rounded-2xl border border-white/5 overflow-hidden">
+                                                    <p className="text-[9px] text-gray-500 uppercase font-black mb-2 tracking-widest">Evidence</p>
+                                                    <p className="text-gray-400 italic text-[11px] leading-relaxed line-clamp-2">"{flagReports[blog.id].evidence}"</p>
+                                                </div>
+                                                <div className="md:col-span-4 bg-red-500/5 p-4 rounded-2xl border border-red-500/10">
+                                                    <p className="text-[9px] text-red-500 uppercase font-black mb-1 tracking-widest">AI Verdict</p>
+                                                    <p className="text-gray-300 text-[11px] leading-relaxed italic">{flagReports[blog.id].reason}</p>
+                                                </div>
+
+                                                {/* Instant Strike Button */}
+                                                <div className="md:col-span-4 flex items-center justify-between bg-red-500/5 p-5 rounded-2xl border border-red-500/10">
+                                                    <div className="flex-1 pr-6">
+                                                        <p className="text-[9px] text-red-500 uppercase font-black mb-1 tracking-widest">AI Reasoning</p>
+                                                        <p className="text-gray-300 text-[11px] leading-relaxed italic line-clamp-2">"{flagReports[blog.id].reason}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleInstantStrike(blog.author_id, blog.author_name)}
+                                                        className="px-6 py-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-red-500 transition-all tracking-widest shrink-0">
+                                                            ⚠️ Instant Strike    
+                                                        </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            /* Emerald Card for Clean Content */
+                                            <div className="bg-emerald-500/5 p-5 rounded-2xl border border-emerald-500/10 flex items-center gap-4">
+                                                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-[10px]">✓</div>
+                                                <div>
+                                                    <p className="text-[9px] text-emerald-500 uppercase font-black mb-1 tracking-widest">AI Safety Analysis</p>
+                                                    <p className="text-gray-300 text-xs italic">"{flagReports[blog.id].reason}"</p>
+                                                </div>
+                                            </div>
+                                        )}
                                     </motion.div>
                                 )}
                             </AnimatePresence>
