@@ -100,12 +100,12 @@ export default function ProfilePage() {
                 onClick={() => document.getElementById('pfpInput')?.click()} 
                 className="text-[10px] text-blue-500 font-black uppercase tracking-widest hover:text-white transition-all duration-300 border-b border-transparent hover:border-white"
             >
-              Update Paddock Identity
+              Update Profile Picture
             </button>
           </div>
         </div>
 
-        {/* --- Super License Status Card --- */}
+        {/* Status Card*/}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -145,6 +145,21 @@ export default function ProfilePage() {
             {/* Minimalist background accent */}
             <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-blue-600/5 rounded-full blur-3xl group-hover:bg-blue-600/10 transition-all duration-700" />
         </motion.div>
+
+        <button
+          onClick={() => window.location.href = '/profile/my-blogs'}
+          className="w-full p-8 bg-white/5 border border-white/10 rounded-[2.5rem] flex items-center justify-between group hover:bg-blue-600/5 transition-all duration-500"
+        >
+          <div className="text-left">
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-gray-500 mb-1">Content Terminal</p>
+            <p className="text-xl font-black italic tracking-tighter uppercase">Manage My <span className="text-blue-600">Blogs</span></p>
+          </div>
+          <div>
+            <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-blue-600 group-hover:border-blue-600 transition-all duration-500">
+              <span className="text-blue-600 group-hover:text-black font-black text-xl">→</span>
+            </div>
+          </div>
+        </button>
 
         {/* Crop Modal */}
         {imageSrc && (

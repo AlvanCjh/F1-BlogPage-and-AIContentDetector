@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AdminNavbar from '@/components/AdminNavbar';
 
 export default function AdminBlogManager() {
-    const [blogs, setBlogs] = useState([]);
+    const [blogs, setBlogs] = useState<any[]>([]);
     const [search, setSearch] = useState('');
     const [flagReports, setFlagReports] = useState<{ [key: number]: any }>({});
     const [loadingId, setLoadingId] = useState<number | null>(null);
@@ -22,23 +22,35 @@ export default function AdminBlogManager() {
         try {
             const res = await fetch('http://localhost/api/admin/check_content.php', {
                 method: 'POST',
-                body: JSON.stringify({ text }),
+                body: JSON.stringify({ 
+                    text, 
+                    blog_id: id 
+                }),
             });
+
+            // Add a check to see if the response is actually OK before parsing JSON
+            if (!res.ok) {
+                const errText = await res.text();
+                console.error("Server Error Output:", errText);
+                throw new Error("Server returned 500. Check PHP logs.");
+            }
+
             const result = await res.json();
             setFlagReports(prev => ({ ...prev, [id]: result }));
+
+            if (result.flagged === false) {
+                fetchBlogs(); // This removes the "Edited" tag
+            }
         } catch (e) { 
-            console.error("AI connection failed.", e); 
+            console.error("AI connection failed.", e);
+            alert("Paddock connection error. Check console.");
         } finally { 
             setLoadingId(null); 
         }
     };
 
     const handleInstantStrike = async (authorId: number, authorName: string) => {
-        if (!authorId) {
-            alert("Error: Author ID missing")
-            return;
-        }
-
+        if (!authorId) return alert("Error: Author ID missing");
         if (!confirm(`Issue an instant strike to author ${authorName}?`)) return;
 
         try {
@@ -46,14 +58,8 @@ export default function AdminBlogManager() {
                 method: 'POST',
                 body: JSON.stringify({ id: authorId }),
             });
-
             const result = await res.json();
-
-            if (result.status === 'success') {
-                alert(`✅ Instant strike issued to ${authorName}.`);
-            } else {
-                alert("❌ Error: " + result.message);
-            }
+            if (result.status === 'success') alert(`✅ Instant strike issued to ${authorName}.`);
         } catch (error) {
             console.error("Strike error:", error);
         }
@@ -72,19 +78,19 @@ export default function AdminBlogManager() {
     };
 
     return (
-        <main className="min-h-screen bg-[#050505] text-white pt-32 pb-20 px-6">
+        <main className="min-h-screen bg-[#050505] text-white pt-32 pb-20 px-6 font-sans">
             <AdminNavbar />
 
             <div className="max-w-5xl mx-auto">
                 <header className="flex justify-between items-end mb-16 border-l-4 border-emerald-500 pl-6">
                     <div>
                         <h1 className="text-5xl font-black italic tracking-tighter uppercase">Race <span className="text-emerald-500">Control</span></h1>
-                        <p className="text-gray-400 text-sm mt-2 font-bold uppercase tracking-widest">Blog Moderation</p>
+                        <p className="text-gray-400 text-[10px] mt-2 font-black uppercase tracking-[0.3em]">Blog Moderation</p>
                     </div>
                     <input
                         placeholder="Search title or author..."
                         onChange={(e) => setSearch(e.target.value)}
-                        className="p-3 bg-white/5 border border-white/10 rounded-xl w-80 text-sm outline-none focus:border-emerald-500 transition-all"
+                        className="p-3 bg-white/5 border border-white/10 rounded-xl w-80 text-sm outline-none focus:border-emerald-500 transition-all font-bold placeholder:text-gray-600"
                     />
                 </header>
 
@@ -92,94 +98,110 @@ export default function AdminBlogManager() {
                     {blogs.filter((b: any) => 
                         b.title.toLowerCase().includes(search.toLowerCase()) || 
                         b.author_name.toLowerCase().includes(search.toLowerCase())
-                    ).map((blog: any) => (
-                        <motion.div
-                            layout
-                            key={blog.id}
-                            className={`p-8 bg-white/5 border rounded-[2.5rem] transition-all relative overflow-hidden ${
-                                flagReports[blog.id]?.flagged ? 'border-red-500/40 bg-red-500/[0.02]' : 
-                                flagReports[blog.id] ? 'border-emerald-500/30 bg-emerald-500/[0.01]' : 'border-white/5'
-                            }`}
-                        >
-                            <div className="flex justify-between items-center mb-4">
-                                <div>
-                                    <h3 className="font-bold text-2xl tracking-tight mb-1">{blog.title}</h3>
-                                    <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Author: {blog.author_name}</p>
+                    ).map((blog: any) => {
+                        // Condition 1: Its brand new and never scanned
+                        // Condition 2: It was edited after the last scan
+                        const updatedTime = new Date(blog.updated_at).getTime();
+                        // const createdTime = new Date(blog.created_at).getTime();
+                        const lastScanTime = blog.last_scan_at ? new Date(blog.last_scan_at).getTime() : 0;
+
+                        // const isEdited = updatedTime > createdTime + 2000;
+                        // const needsRescan = isEdited && updatedTime > lastScanTime;
+                        const needsSecurityCheck = lastScanTime === 0 || updatedTime > lastScanTime + 2000;
+
+                        return (
+                            <motion.div
+                                layout
+                                key={blog.id}
+                                className={`p-8 bg-white/5 border rounded-[2.5rem] transition-all relative overflow-hidden ${
+                                    flagReports[blog.id]?.flagged ? 'border-red-500/40 bg-red-500/[0.02]' : 
+                                    flagReports[blog.id] ? 'border-emerald-500/30 bg-emerald-500/[0.01]' : 'border-white/5'
+                                }`}
+                            >
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 className="font-black text-2xl italic tracking-tighter uppercase mb-1">{blog.title}</h3>
+                                        <div className="flex items-center gap-3">
+                                            <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Author: {blog.author_name}</p>
+
+                                            {needsSecurityCheck && (
+                                                <span className="flex items-center gap-1.5 px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-lg shadow-lg shadow-yellow-500/5">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
+                                                    <span className="text-[9px] text-yellow-500 font-black uppercase tracking-widest">
+                                                        {lastScanTime === 0 ? "New: Security Scan Needed" : "Edited: Re-Scan Suggested"}
+                                                    </span>
+                                                </span>
+                                            )}
+                                        </div> 
+                                    </div>
+
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={() => scanWithAI(blog.id, `${blog.title} ${blog.content}`)}
+                                            className={`w-36 h-11 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                needsSecurityCheck ? 'bg-yellow-500 text-black scale-105 shadow-xl shadow-yellow-500/20' : 'bg-emerald-500 text-black opacity-80'
+                                            }`}
+                                        >
+                                            {needsSecurityCheck ? "Security Scan" : "AI Scan"}
+                                        </button>
+                                        <button 
+                                            onClick={() => handleDelete(blog.id)}
+                                            className="w-32 h-11 bg-white/5 text-red-500 border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all flex items-center justify-center"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
                                 </div>
 
-                                {/* Fixed Button Consistency */}
-                                <div className="flex gap-4">
-                                    <button
-                                        onClick={() => scanWithAI(blog.id, `${blog.title} ${blog.content}`)}
-                                        disabled={loadingId === blog.id}
-                                        className="w-32 h-11 bg-emerald-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-all flex items-center justify-center disabled:opacity-50"
-                                    >
-                                        {loadingId === blog.id ? "..." : "AI Scan"}
-                                    </button>
-                                    <button 
-                                        onClick={() => handleDelete(blog.id)}
-                                        className="w-32 h-11 bg-white/5 text-red-500 border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all flex items-center justify-center"
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                            </div>
-
-                            <AnimatePresence>
-                                {flagReports[blog.id] && (
-                                    <motion.div 
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className="mt-8 pt-8 border-t border-white/10"
-                                    >
-                                        {flagReports[blog.id].flagged ? (
-                                            /* Red Bento Grid for Flags */
-                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                                <div className="bg-white/5 p-5 rounded-2xl border border-white/5">
-                                                    <p className="text-[9px] text-red-500 uppercase font-black mb-2 tracking-widest">Violation</p>
-                                                    <p className="text-white font-bold text-xs uppercase">{flagReports[blog.id].category}</p>
-                                                </div>
-                                                <div className="bg-white/5 p-5 rounded-2xl border border-white/5">
-                                                    <p className="text-[9px] text-gray-500 uppercase font-black mb-2 tracking-widest">Target</p>
-                                                    <p className="text-white font-bold text-xs leading-tight">{flagReports[blog.id].targets}</p>
-                                                </div>
-                                                <div className="md:col-span-2 bg-white/5 p-5 rounded-2xl border border-white/5 overflow-hidden">
-                                                    <p className="text-[9px] text-gray-500 uppercase font-black mb-2 tracking-widest">Evidence</p>
-                                                    <p className="text-gray-400 italic text-[11px] leading-relaxed line-clamp-2">"{flagReports[blog.id].evidence}"</p>
-                                                </div>
-                                                <div className="md:col-span-4 bg-red-500/5 p-4 rounded-2xl border border-red-500/10">
-                                                    <p className="text-[9px] text-red-500 uppercase font-black mb-1 tracking-widest">AI Verdict</p>
-                                                    <p className="text-gray-300 text-[11px] leading-relaxed italic">{flagReports[blog.id].reason}</p>
-                                                </div>
-
-                                                {/* Instant Strike Button */}
-                                                <div className="md:col-span-4 flex items-center justify-between bg-red-500/5 p-5 rounded-2xl border border-red-500/10">
-                                                    <div className="flex-1 pr-6">
-                                                        <p className="text-[9px] text-red-500 uppercase font-black mb-1 tracking-widest">AI Reasoning</p>
-                                                        <p className="text-gray-300 text-[11px] leading-relaxed italic line-clamp-2">"{flagReports[blog.id].reason}</p>
+                                <AnimatePresence>
+                                    {flagReports[blog.id] && (
+                                        <motion.div 
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="mt-8 pt-8 border-t border-white/10"
+                                        >
+                                            {flagReports[blog.id].flagged ? (
+                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                    <div className="bg-white/5 p-5 rounded-2xl border border-white/5">
+                                                        <p className="text-[9px] text-red-500 uppercase font-black mb-2 tracking-widest">Violation</p>
+                                                        <p className="text-white font-bold text-xs uppercase">{flagReports[blog.id].category}</p>
                                                     </div>
-                                                    <button
-                                                        onClick={() => handleInstantStrike(blog.author_id, blog.author_name)}
-                                                        className="px-6 py-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-red-500 transition-all tracking-widest shrink-0">
-                                                            ⚠️ Instant Strike    
+                                                    <div className="bg-white/5 p-5 rounded-2xl border border-white/5">
+                                                        <p className="text-[9px] text-gray-500 uppercase font-black mb-2 tracking-widest">Target</p>
+                                                        <p className="text-white font-bold text-xs leading-tight">{flagReports[blog.id].targets}</p>
+                                                    </div>
+                                                    <div className="md:col-span-2 bg-white/5 p-5 rounded-2xl border border-white/5 overflow-hidden">
+                                                        <p className="text-[9px] text-gray-500 uppercase font-black mb-2 tracking-widest">Evidence</p>
+                                                        <p className="text-gray-400 italic text-[11px] leading-relaxed line-clamp-2">"{flagReports[blog.id].evidence}"</p>
+                                                    </div>
+
+                                                    <div className="md:col-span-4 flex items-center justify-between bg-red-500/5 p-5 rounded-2xl border border-red-500/10">
+                                                        <div className="flex-1 pr-6">
+                                                            <p className="text-[9px] text-red-500 uppercase font-black mb-1 tracking-widest">AI Reasoning</p>
+                                                            <p className="text-gray-300 text-[11px] leading-relaxed italic line-clamp-2">{flagReports[blog.id].reason}</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleInstantStrike(blog.author_id, blog.author_name)}
+                                                            className="px-6 py-2 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-red-500 transition-all tracking-widest shrink-0">
+                                                                ⚠️ Instant Strike    
                                                         </button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ) : (
-                                            /* Emerald Card for Clean Content */
-                                            <div className="bg-emerald-500/5 p-5 rounded-2xl border border-emerald-500/10 flex items-center gap-4">
-                                                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-[10px]">✓</div>
-                                                <div>
-                                                    <p className="text-[9px] text-emerald-500 uppercase font-black mb-1 tracking-widest">AI Safety Analysis</p>
-                                                    <p className="text-gray-300 text-xs italic">"{flagReports[blog.id].reason}"</p>
+                                            ) : (
+                                                <div className="bg-emerald-500/5 p-5 rounded-2xl border border-emerald-500/10 flex items-center gap-4">
+                                                    <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-[10px]">✓</div>
+                                                    <div>
+                                                        <p className="text-[9px] text-emerald-500 uppercase font-black mb-1 tracking-widest">AI Safety Analysis</p>
+                                                        <p className="text-gray-300 text-xs italic">"{flagReports[blog.id].reason}"</p>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </motion.div>
-                    ))}
+                                            )}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </motion.div>
+                        );
+                    })}
                 </div>
             </div>
         </main>
